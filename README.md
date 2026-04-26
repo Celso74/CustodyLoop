@@ -1,9 +1,13 @@
 # CustodyLoop
 
-> **An experimental AI execution loop with verifiable chain-of-custody.**
+> **CustodyLoop runs AI-generated code changes and refuses to trust them until a separate model independently verifies the result.**
 
-CustodyLoop is a research-grade Python library that runs a small, strict
-three-stage loop on top of frontier large language models:
+It's built to answer one question:
+
+> *Does a second model catch mistakes the first one misses?*
+
+The loop has three stages, run by three different models, plus a final
+report:
 
 1. **Plan** — a planner model produces a structured JSON plan packet:
    objectives, allowed files, forbidden files, expected output, required
@@ -17,7 +21,7 @@ three-stage loop on top of frontier large language models:
    stripped of internal vocabulary.
 
 Every run produces a JSON audit trail: plan packet, execution report,
-verdict, final report. The trail is the point.
+verdict, final report. The trail is what makes the answer auditable.
 
 ## What this is NOT
 
