@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local model wrappers + auth (NEVER commit)
+wrappers/local/
+wrappers/.env
+*.token
+*.key
+*credentials*
+
+# Run artifacts
+/tmp/
+artifacts/
+*.log
+*.ndjson
+*.sqlite
+*.db
