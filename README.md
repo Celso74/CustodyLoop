@@ -2,6 +2,8 @@
 
 > **CustodyLoop runs AI-generated code changes and refuses to trust them until a separate model independently verifies the result.**
 
+Give it a repo with a failing test, and it will attempt a fix — then have a second model decide if the fix is actually correct.
+
 It's built to answer one question:
 
 > *Does a second model catch mistakes the first one misses?*
@@ -21,7 +23,7 @@ report:
    stripped of internal vocabulary.
 
 Every run produces a JSON audit trail: plan packet, execution report,
-verdict, final report. The trail is what makes the answer auditable.
+verdict, final report. The trail is the point — not the code.
 
 ## What this is NOT
 
@@ -124,6 +126,27 @@ If no per-role flag is passed and `CUSTODYLOOP_MODEL_ID` is not set, the
 CLI exits before Stage 1 with a clear error naming the missing flags.
 
 Run `python -m custodyloop --help` for all options.
+
+### What you'll actually see
+
+```text
+STEP 1: Plan generated
+STEP 2: Executor modified 2 files, ran tests
+STEP 3: Validator verdict: REJECTED (missing edge case)
+Retrying...
+
+STEP 4: Executor updated fix
+STEP 5: Validator verdict: APPROVED
+
+Final report:
+- Files changed: test_foo.py, foo.py
+- Tests: passing
+- Verdict: APPROVED
+```
+
+The full JSON audit trail (plan, execution report, verdict, final
+report) is written to the artifact directory alongside this human-
+readable summary.
 
 ## Architecture at a glance
 

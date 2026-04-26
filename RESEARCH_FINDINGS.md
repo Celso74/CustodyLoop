@@ -74,7 +74,7 @@ tasks, or long-running tasks.
 
 The single most surprising finding from this work:
 
-> **Validation may matter more than generation.**
+> **Independent validation may matter more than generation.**
 
 The council's loss in V1 was not a generation-quality problem — the
 underlying models are perfectly capable of writing correct code. The
