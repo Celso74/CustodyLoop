@@ -4,13 +4,17 @@ A Runner has a single contract:
     run(model: str, prompt: str, *, workdir: Path | None, timeout: int) -> str
 
 It returns the model's text output (stdout of the wrapper script).
-ShellRunner shells out to bin/call_<wrapper>.sh with the proper
+ShellRunner shells out to wrappers/call_<wrapper>.sh with the proper
 CUSTODYLOOP_MODEL_ID env var. Tests substitute a fake Runner.
 
-Supported models:
-- claude   → call_claude.sh    (CUSTODYLOOP_MODEL_ID=claude-opus-4-7)
-- codex    → call_codex.sh     (CUSTODYLOOP_MODEL_ID=gpt-5.3-codex)
-- chatgpt  → call_chatgpt.sh   (CUSTODYLOOP_MODEL_ID=gpt-5.5)
+Supported wrappers (role → script):
+- claude   → call_claude.sh   (planner + final reporter)
+- codex    → call_codex.sh    (executor)
+- chatgpt  → call_chatgpt.sh  (validator)
+
+Per-role model IDs are resolved by ShellRunner from its ``model_ids`` dict
+(populated by CLI flags), falling back to the ``CUSTODYLOOP_MODEL_ID`` env
+var for legacy single-model mode.
 """
 
 from __future__ import annotations
@@ -24,9 +28,10 @@ from pathlib import Path
 from typing import Optional
 
 
-# NOTE: model IDs are intentionally not hard-coded. The user MUST set
-# CUSTODYLOOP_MODEL_ID per call (or export it before invoking the wrapper)
-# to point at a model identifier their CLI/account actually accepts.
+# NOTE: model IDs are intentionally not hard-coded. The user supplies them
+# via per-role CLI flags (--planner-model / --executor-model /
+# --validator-model) which populate ShellRunner.model_ids. The legacy
+# CUSTODYLOOP_MODEL_ID env var still works as a single-model fallback.
 WRAPPERS = {
     "claude":  ("call_claude.sh",  ""),
     "codex":   ("call_codex.sh",   ""),
@@ -46,10 +51,18 @@ class Runner(ABC):
 
 
 class ShellRunner(Runner):
-    """Invokes the bin/call_*.sh wrappers."""
+    """Invokes the bin/call_*.sh wrappers.
 
-    def __init__(self, bin_dir: Path = BIN_DIR):
+    Model-ID resolution order, per call:
+      1. ``model_ids`` dict passed to __init__ (per-role IDs from CLI flags)
+      2. ``CUSTODYLOOP_MODEL_ID`` env var (legacy single-model mode)
+      3. WRAPPERS table default (always empty in the public repo)
+      4. error
+    """
+
+    def __init__(self, bin_dir: Path = BIN_DIR, *, model_ids: Optional[dict] = None):
         self.bin_dir = Path(bin_dir)
+        self.model_ids = dict(model_ids) if model_ids else {}
 
     def run(self, model: str, prompt: str, *, workdir: Optional[Path] = None, timeout: int = 600) -> str:
         if model not in WRAPPERS:
@@ -59,19 +72,26 @@ class ShellRunner(Runner):
         if not wrapper.exists():
             raise RunnerError(f"Wrapper not found: {wrapper}")
 
-        tmpdir = Path(tempfile.mkdtemp(prefix=f"r6_{model}_"))
+        model_id = (
+            self.model_ids.get(model)
+            or os.environ.get("CUSTODYLOOP_MODEL_ID")
+            or default_model_id
+        )
+        if not model_id:
+            raise RunnerError(
+                f"No model ID for role {model!r}: pass --planner-model / "
+                f"--executor-model / --validator-model, or set "
+                f"CUSTODYLOOP_MODEL_ID for legacy single-model mode"
+            )
+
+        tmpdir = Path(tempfile.mkdtemp(prefix=f"custodyloop_{model}_"))
         try:
             in_path = tmpdir / "in.txt"
             out_path = tmpdir / "out.txt"
             in_path.write_text(prompt)
 
             env = os.environ.copy()
-            if "CUSTODYLOOP_MODEL_ID" not in env:
-                if not default_model_id:
-                    raise RunnerError(
-                        f"CUSTODYLOOP_MODEL_ID env var must be set for model {model!r}"
-                    )
-                env["CUSTODYLOOP_MODEL_ID"] = default_model_id
+            env["CUSTODYLOOP_MODEL_ID"] = model_id
 
             cmd = [str(wrapper), str(in_path), str(out_path)]
             if model == "codex" and workdir is not None:

@@ -78,10 +78,13 @@ Sample wrappers are provided in `wrappers/`. They are minimal stubs:
 they do not handle account failover, sandboxing, or retries. You are
 expected to harden them for your own environment.
 
-The runner sets a `CUSTODYLOOP_MODEL_ID` environment variable per call.
-You must point each wrapper at a model identifier your CLI / account
-actually accepts. Defaults are intentionally absent to force explicit
-choice.
+Each role takes its own model ID via `--planner-model`,
+`--executor-model`, and `--validator-model`. The runner sets
+`CUSTODYLOOP_MODEL_ID` per wrapper invocation to that role's ID, so
+the wrapper scripts stay role-agnostic. (Legacy: setting
+`CUSTODYLOOP_MODEL_ID` in the parent shell still works as a single-model
+fallback when no per-role flags are passed — useful for smoke-testing
+with one model.)
 
 Python 3.10+. No third-party runtime dependencies.
 
@@ -107,13 +110,18 @@ For a real run:
 # 1. Install a wrapper for each model role (see wrappers/).
 # 2. Make them executable and add their directory to PATH.
 
-export CUSTODYLOOP_MODEL_ID="<your-planner-model-id>"
 python -m custodyloop \
     --task "fix the failing test in test_foo.py" \
     --workdir /tmp/my_safe_workdir \
+    --planner-model   "<id-your-claude-cli-accepts>" \
+    --executor-model  "<id-your-codex-cli-accepts>" \
+    --validator-model "<id-your-validator-cli-accepts>" \
     --auto-approve \
     --max-retries 2
 ```
+
+If no per-role flag is passed and `CUSTODYLOOP_MODEL_ID` is not set, the
+CLI exits before Stage 1 with a clear error naming the missing flags.
 
 Run `python -m custodyloop --help` for all options.
 
